@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">TheodorosChristou-Assignment</string>
+    <string name="addrestaurant">Add Restaurant</string>
+    <string name="tv3">Cuisine</string>
+    <string name="tv4">Star rating(1-5)</string>
+    <string name="tv1">Name</string>
+    <string name="tv2">Address</string>
+    <string name="btn1">Add Restaurant</string>
 </resources>
