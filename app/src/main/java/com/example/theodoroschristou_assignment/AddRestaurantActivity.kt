@@ -27,20 +27,20 @@ class AddRestaurantActivity: AppCompatActivity(), View.OnClickListener {
         var namex = ""
         var addressx = ""
         var cuisinex = ""
-        var starrx = 0.0
+        var starrx = 0
 
         when (v?.id) {
             R.id.btn1 -> {
                 namex = name.text.toString()
                 addressx = address.text.toString()
                 cuisinex = cuisine.text.toString()
-                starrx = starr.text.toString().toDouble()
+                starrx = starr.text.toString().toInt()
                 addRestaurantLauncher(namex, addressx, cuisinex, starrx)
             }
         }
     }
 
-    fun addRestaurantLauncher(name: String, address: String, cuisine: String, starr: Double ) {
+    fun addRestaurantLauncher(name: String, address: String, cuisine: String, starr: Int ) {
         val intent = Intent()
         val bundle = bundleOf("com.example.name" to name, "com.example.address" to address, "com.example.cuisine" to cuisine, "com.example.starr" to starr, )
         intent.putExtras(bundle)

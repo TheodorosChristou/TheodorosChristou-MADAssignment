@@ -6,4 +6,5 @@
     <string name="tv1">Name</string>
     <string name="tv2">Address</string>
     <string name="btn1">Add Restaurant</string>
+    <string name="saveall">Save All Restaurants</string>
 </resources>
