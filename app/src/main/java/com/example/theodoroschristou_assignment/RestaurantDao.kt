@@ -9,7 +9,7 @@ interface RestaurantDao {
     fun getRestaurantById(id: Long): Restaurant?
 
     @Query("SELECT * FROM restaurants")
-    fun getAllSongs(): List<Restaurant>
+    fun getAllRestaurants(): List<Restaurant>
 
     @Insert
     fun insert(restaurants: Restaurant) : Long

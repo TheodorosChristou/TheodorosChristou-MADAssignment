@@ -3,4 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@+id/addrestaurant" android:title="@string/addrestaurant"/>
     <item android:id="@+id/saveall" android:title="@string/saveall"/>
+    <item android:id="@+id/loadfromSQL" android:title="@string/loadfromSQL"/>
+    <item android:id="@+id/loadfromWeb" android:title="@string/loadfromWeb"/>
+    <item android:id="@+id/menuItemPreferences" android:title="@string/preferences" />
 </menu>

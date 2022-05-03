@@ -7,4 +7,8 @@
     <string name="tv2">Address</string>
     <string name="btn1">Add Restaurant</string>
     <string name="saveall">Save All Restaurants</string>
+    <string name="preferences">Preferences</string>
+    <string name="loadall">Load Restaurants</string>
+    <string name="loadfromSQL">loadfromSQL</string>
+    <string name="loadfromWeb">loadfromWeb</string>
 </resources>

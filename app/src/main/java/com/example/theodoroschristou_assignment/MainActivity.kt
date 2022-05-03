@@ -21,10 +21,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import android.widget.Button
+import android.widget.TextView
+import com.github.kittinunf.fuel.core.Parameters
+import com.github.kittinunf.fuel.httpGet
+import com.github.kittinunf.fuel.json.responseJson
+import com.github.kittinunf.fuel.gson.responseObject
+import com.github.kittinunf.fuel.httpPost
+import com.github.kittinunf.result.Result
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.ItemizedIconOverlay
 import org.osmdroid.views.overlay.OverlayItem
+import java.net.URL
 import androidx.lifecycle.lifecycleScope as lifecycleScope1
 
 
@@ -81,6 +91,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
             .show()
     }
 
+    fun showTheToast(message : String) {
+        Toast.makeText(this, "${message}", Toast.LENGTH_LONG).show()
+    }
+
+
+
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -109,6 +126,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
         return true
     }
 
+    override fun onResume() {
+        super.onResume()
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+        val Boolean = prefs.getBoolean("webupload", false)
+        if (Boolean){
+            showTheToast("Automatic Web upload is on")
+        }
+
+
+    }
+
     val addRestaurantLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (it.resultCode == RESULT_OK) {
@@ -120,8 +148,33 @@ class MainActivity : AppCompatActivity(), LocationListener {
                     var restaurant = Restaurant(0,name,address,cuisine,starr,latitude,longitude)
                     showTheDialog("Created marker for ${restaurant.name}")
                     listOfRestaurants.add(restaurant)
-                    val newRestaurant = OverlayItem("${name}", "${name}",GeoPoint(latitude, longitude))
+                    val newRestaurant = OverlayItem("${name}", "Name :${name} , Address: ${address} , Cuisine: ${cuisine}, Star Rating: ${starr}", GeoPoint(latitude, longitude))
                     items.addItem(newRestaurant)
+
+                    val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this@MainActivity)
+                    val Boolean = prefs.getBoolean("webupload", false)
+
+                    if (Boolean){
+
+                        val starRating = starr.toString().toInt()
+                        val lat = latitude.toString().toDouble()
+                        val lon = longitude.toString().toDouble()
+
+                        val url = "http://10.0.2.2:3000/restaurant/create"
+                        val postData = listOf("name" to name, "cuisine" to cuisine, "address" to address, "starRating" to starRating,  "lon" to lon, "lat" to lat)
+                        url.httpPost(postData).response { request, response, result ->
+                            when (result) {
+                                is Result.Success -> {
+                                    showTheToast("Restaurant added on Web")
+                                }
+
+                                is Result.Failure -> {
+                                    showTheToast("Restaurant couldnt be added because of error: ${result.error.message}")
+
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -148,9 +201,68 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 }
                 return true
             }
+            R.id.menuItemPreferences -> {
+                val intent = Intent(this, MyPrefsActivity::class.java)
+                startActivity(intent)
+            }
+            R.id.loadfromSQL -> {
+                lifecycleScope1.launch {
+                    showTheDialog("Successfully loaded restaurants from SQL")
+                    withContext(Dispatchers.IO) {
+                        val db = RestaurantDatabase.getDatabase(application)
+                        var loadRestaurantList = db.RestaurantDao().getAllRestaurants()
+                        for (i in 0 until loadRestaurantList.size) {
+                            var loadRestaurant = loadRestaurantList[i]
+                            loadRestaurant?.apply {
+                                var Rname = loadRestaurant.name
+                                var Raddress = loadRestaurant.address
+                                var Rcuisine = loadRestaurant.cuisine
+                                var Rstarr = loadRestaurant.rating
+                                var Rlatitude = loadRestaurant.lat
+                                var Rlongitude = loadRestaurant.lon
+                                val newRestaurant =
+                                    OverlayItem("${Rname}", "Name :${Rname} , Address: ${Raddress} , Cuisine: ${Rcuisine}, Star Rating: ${Rstarr}", GeoPoint(Rlatitude, Rlongitude))
+                                items.addItem(newRestaurant)
+                            }
+                        }
+                    }
+                }
+            }
+            R.id.loadfromWeb -> {
+                lifecycleScope1.launch {
+                    var url = "http://10.0.2.2:3000/restaurants/all"
+                    url.httpGet().responseJson { request, response, result ->
+
+                        when(result) {
+                            is Result.Success -> {
+                                val jsonArray = result.get().array()
+                                for(i in 0 until jsonArray.length()) {
+                                    val curObj = jsonArray.getJSONObject(i)
+                                    var Rname = curObj.getString("name")
+                                    var Raddress = curObj.getString("address")
+                                    var Rcuisine = curObj.getString("cuisine")
+                                    var Rstarr = curObj.getString("starRating")
+                                    var Rlatitude = curObj.getString("lat").toDouble()
+                                    var Rlongitude = curObj.getString("lon").toDouble()
+                                    val newRestaurant =
+                                        OverlayItem("${Rname}", "Name :${Rname} , Address: ${Raddress} , Cuisine: ${Rcuisine}, Star Rating: ${Rstarr}", GeoPoint(Rlatitude, Rlongitude))
+                                    items.addItem(newRestaurant)
+                                }
+                                showTheDialog("Successfully loaded restaurants from Web")
+                            }
+
+                            is Result.Failure -> {
+                                showTheDialog("ERROR ${result.error.message}")
+                            }
+                        }
+
+                    }
+                }
+            }
         }
         return false
     }
+
 
 
     override fun onLocationChanged(newLoc: Location) {
@@ -173,8 +285,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
+    override fun onStop() {
+        super.onStop()
         val db = RestaurantDatabase.getDatabase(application)
         lifecycleScope1.launch {
             for (i in 0 until listOfRestaurants.size) {
@@ -185,7 +297,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 }
 
             }
-            showTheDialog("Restaurants got saved to the database")
         }
     }
 }
