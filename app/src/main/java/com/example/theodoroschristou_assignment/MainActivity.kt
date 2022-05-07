@@ -13,7 +13,6 @@ import android.preference.PreferenceManager
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -21,20 +20,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import android.widget.Button
-import android.widget.TextView
-import com.github.kittinunf.fuel.core.Parameters
 import com.github.kittinunf.fuel.httpGet
 import com.github.kittinunf.fuel.json.responseJson
-import com.github.kittinunf.fuel.gson.responseObject
 import com.github.kittinunf.fuel.httpPost
 import com.github.kittinunf.result.Result
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.ItemizedIconOverlay
 import org.osmdroid.views.overlay.OverlayItem
-import java.net.URL
+import androidx.drawerlayout.widget.DrawerLayout
+import androidx.fragment.app.commit
+import com.google.android.material.navigation.NavigationView
 import androidx.lifecycle.lifecycleScope as lifecycleScope1
 
 
@@ -44,11 +38,18 @@ class MainActivity : AppCompatActivity(), LocationListener {
     var latitude = 0.0
     var longitude = 0.0
     lateinit var items: ItemizedIconOverlay<OverlayItem>
-    var listOfRestaurants = mutableListOf<Restaurant>()
+    lateinit var frag1: FragMap
+    lateinit var frag2: FragAddRestaurant
     override fun onCreate(savedInstanceState: Bundle?){
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this));
+
+
+        val db = RestaurantDatabase.getDatabase(application)
+        frag2 = FragAddRestaurant(db)
+        frag1 = FragMap()
         val markerGestureListener = object:ItemizedIconOverlay.OnItemGestureListener<OverlayItem>
         {
             override fun onItemLongPress(i: Int, item:OverlayItem ) : Boolean
@@ -63,14 +64,59 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 return true
             }
         }
-
-
-        val map1 = findViewById<MapView>(R.id.map1)
-        map1.controller.setZoom(16.0)
-        map1.controller.setCenter(GeoPoint(51.05, -0.72))
         items = ItemizedIconOverlay(this, arrayListOf<OverlayItem>(), markerGestureListener)
-        map1.overlays.add(items)
+
+
+
+
+        val nv = findViewById<NavigationView>(R.id.nv)
+        val drawerLayout = findViewById<DrawerLayout>(R.id.drawerLayout)
+
+
+
+
+        nv.setNavigationItemSelectedListener {
+            val frag = if (it.itemId == R.id.map) frag1 else frag2
+            drawerLayout.closeDrawers()
+            supportFragmentManager.commit {
+                replace(R.id.frameLayout1, frag)
+            }
+            true
+        }
+        supportFragmentManager.commit {
+            replace(R.id.frameLayout1, frag1)
+        }
+
         requestLocation()
+
+        frag2.callback = { name, address, cuisine, starr->
+            frag1.setPendingLocation(name, address, cuisine, starr,latitude, longitude)
+            val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this@MainActivity)
+            val Boolean = prefs.getBoolean("webupload", false)
+
+            if (Boolean){
+                val starRating = starr.toString().toInt()
+                val lat = latitude.toString().toDouble()
+                val lon = longitude.toString().toDouble()
+
+                val url = "http://10.0.2.2:3000/restaurant/create"
+                val postData = listOf("name" to name, "cuisine" to cuisine, "address" to address, "starRating" to starRating,  "lon" to lon, "lat" to lat)
+                url.httpPost(postData).response { request, response, result ->
+                    when (result) {
+                        is Result.Success -> {
+                            showTheToast("Restaurant added to the Web")
+                        }
+
+                        is Result.Failure -> {
+                            showTheToast("Restaurant couldnt be added because of error: ${result.error.message}")
+
+                        }
+                    }
+                }
+            }
+        }
+
+
     }
 
     fun requestLocation() {
@@ -137,62 +183,16 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     }
 
-    val addRestaurantLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            if (it.resultCode == RESULT_OK) {
-                it.data?.apply {
-                    val name = this.getStringExtra("com.example.name").toString()
-                    val address = this.getStringExtra("com.example.address").toString()
-                    val cuisine = this.getStringExtra("com.example.cuisine").toString()
-                    val starr = this.getIntExtra("com.example.starr", 0)
-                    var restaurant = Restaurant(0,name,address,cuisine,starr,latitude,longitude)
-                    showTheDialog("Created marker for ${restaurant.name}")
-                    listOfRestaurants.add(restaurant)
-                    val newRestaurant = OverlayItem("${name}", "Name :${name} , Address: ${address} , Cuisine: ${cuisine}, Star Rating: ${starr}", GeoPoint(latitude, longitude))
-                    items.addItem(newRestaurant)
-
-                    val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this@MainActivity)
-                    val Boolean = prefs.getBoolean("webupload", false)
-
-                    if (Boolean){
-
-                        val starRating = starr.toString().toInt()
-                        val lat = latitude.toString().toDouble()
-                        val lon = longitude.toString().toDouble()
-
-                        val url = "http://10.0.2.2:3000/restaurant/create"
-                        val postData = listOf("name" to name, "cuisine" to cuisine, "address" to address, "starRating" to starRating,  "lon" to lon, "lat" to lat)
-                        url.httpPost(postData).response { request, response, result ->
-                            when (result) {
-                                is Result.Success -> {
-                                    showTheToast("Restaurant added on Web")
-                                }
-
-                                is Result.Failure -> {
-                                    showTheToast("Restaurant couldnt be added because of error: ${result.error.message}")
-
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
     override fun onOptionsItemSelected(item: MenuItem) : Boolean {
         when(item.itemId) {
-            R.id.addrestaurant -> {
-                val intent = Intent(this,AddRestaurantActivity::class.java)
-                addRestaurantLauncher.launch(intent)
-                return true
-            }
             R.id.saveall -> {
                 val db = RestaurantDatabase.getDatabase(application)
                 lifecycleScope1.launch {
-                    for (i in 0 until listOfRestaurants.size) {
+                    var FragListofRestaurants = frag1.listOfRestaurants
+                    for (i in 0 until FragListofRestaurants.size) {
                         var id = 0L
                         withContext(Dispatchers.IO) {
-                            var addRestaurant = listOfRestaurants[i]
+                            var addRestaurant = FragListofRestaurants[i]
                             id = db.RestaurantDao().insert(addRestaurant)
                         }
 
@@ -220,9 +220,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                                 var Rstarr = loadRestaurant.rating
                                 var Rlatitude = loadRestaurant.lat
                                 var Rlongitude = loadRestaurant.lon
-                                val newRestaurant =
-                                    OverlayItem("${Rname}", "Name :${Rname} , Address: ${Raddress} , Cuisine: ${Rcuisine}, Star Rating: ${Rstarr}", GeoPoint(Rlatitude, Rlongitude))
-                                items.addItem(newRestaurant)
+                                frag1.LoadFromSQL(Rname, Raddress, Rcuisine, Rstarr, Rlatitude, Rlongitude)
                             }
                         }
                     }
@@ -241,18 +239,16 @@ class MainActivity : AppCompatActivity(), LocationListener {
                                     var Rname = curObj.getString("name")
                                     var Raddress = curObj.getString("address")
                                     var Rcuisine = curObj.getString("cuisine")
-                                    var Rstarr = curObj.getString("starRating")
+                                    var Rstarr = curObj.getString("starRating").toInt()
                                     var Rlatitude = curObj.getString("lat").toDouble()
                                     var Rlongitude = curObj.getString("lon").toDouble()
-                                    val newRestaurant =
-                                        OverlayItem("${Rname}", "Name :${Rname} , Address: ${Raddress} , Cuisine: ${Rcuisine}, Star Rating: ${Rstarr}", GeoPoint(Rlatitude, Rlongitude))
-                                    items.addItem(newRestaurant)
+                                    frag1.LoadFromWeb(Rname, Raddress, Rcuisine, Rstarr, Rlatitude, Rlongitude )
                                 }
                                 showTheDialog("Successfully loaded restaurants from Web")
                             }
 
                             is Result.Failure -> {
-                                showTheDialog("ERROR ${result.error.message}")
+                                showTheDialog("COULDNT LOAD, ERROR ${result.error.message}")
                             }
                         }
 
@@ -266,11 +262,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
 
     override fun onLocationChanged(newLoc: Location) {
-        val map1 = findViewById<MapView>(R.id.map1)
-        map1.controller.setZoom(16.0)
         latitude = newLoc.latitude
         longitude = newLoc.longitude
-        map1.controller.setCenter(GeoPoint(newLoc.latitude, newLoc.longitude))
+        frag1.LocationChanged(newLoc.latitude, newLoc.longitude)
     }
 
     override fun onProviderDisabled(provider: String) {
@@ -289,10 +283,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         super.onStop()
         val db = RestaurantDatabase.getDatabase(application)
         lifecycleScope1.launch {
-            for (i in 0 until listOfRestaurants.size) {
+            var FragListofRestaurants = frag1.listOfRestaurants
+            for (i in 0 until FragListofRestaurants.size) {
                 var id = 0L
                 withContext(Dispatchers.IO) {
-                    var addRestaurant = listOfRestaurants[i]
+                    var addRestaurant = FragListofRestaurants[i]
                     id = db.RestaurantDao().insert(addRestaurant)
                 }
 

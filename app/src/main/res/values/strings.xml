@@ -11,4 +11,5 @@
     <string name="loadall">Load Restaurants</string>
     <string name="loadfromSQL">loadfromSQL</string>
     <string name="loadfromWeb">loadfromWeb</string>
+    <string name="map">Map</string>
 </resources>
