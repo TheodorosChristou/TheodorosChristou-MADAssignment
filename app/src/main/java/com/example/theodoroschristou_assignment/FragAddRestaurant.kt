@@ -7,7 +7,7 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 
-class FragAddRestaurant(val db: RestaurantDatabase) : Fragment(R.layout.fragaddrestaurant) {
+class FragAddRestaurant() : Fragment(R.layout.fragaddrestaurant) {
     var callback: ((String,String,String,Int) -> Unit)? = null
     var notNull = true
     override fun onViewCreated(v: View, b: Bundle?)  {

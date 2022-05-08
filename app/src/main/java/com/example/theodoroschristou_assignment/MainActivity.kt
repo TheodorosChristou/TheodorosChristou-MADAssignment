@@ -47,8 +47,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this));
 
 
-        val db = RestaurantDatabase.getDatabase(application)
-        frag2 = FragAddRestaurant(db)
+
+        frag2 = FragAddRestaurant()
         frag1 = FragMap()
         val markerGestureListener = object:ItemizedIconOverlay.OnItemGestureListener<OverlayItem>
         {
